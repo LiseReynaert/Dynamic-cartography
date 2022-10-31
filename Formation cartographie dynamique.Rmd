@@ -1,0 +1,698 @@
+---
+title: "Cartographie dynamique avec R - leaflet"
+author: "Lise Reynaert"
+date: "13/03/2021"
+output: 
+  html_document:
+    toc: true
+    theme: lumen
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Bienvenue ! Cette page présente les fonctionnalités du package R - Leaflet, et a pour objectif de vous guider dans la création et le partage de vos cartes interactives.  
+
+**Condition requise pour l'affichage des cartes** : le fichier HTML doit être ouvert sur Chrome ou Firefox.
+
+## Présentation
+Leaflet est une librairie JavaScript open-source permettant de créer des cartes interactives. Heureusement, Le package R facilite la création de cartes en R, sans avoir besoin d'apprendre le JavaScript. Les cartes peuvent ensuite être intégrées dans une page HTML.  
+
+Les cartes interactives avec Leaflet permettent notamment :  
+
+
+* Des vues panoramiques et des zooms interactifs
+* Des pop-ups et des labels personnalisés
+* La sélection/surbrillance de régions
+* La représentation de données spatiales à partir des packages sp ou sf, ou de bases de données comprenant les latitudes et longitudes
+* L'intégration de cartes dans des documents [R Markdown](https://rmarkdown.rstudio.com/) et des applications [Shiny](https://shiny.rstudio.com/)
+
+
+Pour installer le package, il suffit d'exécuter dans la console : 
+```{r,eval=FALSE, tidy = TRUE}
+install.packages("leaflet")
+```
+
+On crée des cartes avec ces deux étapes basiques :
+
+1. On crée un "map widget" en appellant la fonction `leaflet()` (widget : application interactive qui permet l'affichage d'informations variées (calendrier, météo…))
+2. On ajoute des couches grâce à des fonctions spécifiques, par exemple `addTiles()`, `addMarkers()`, `addPolygons()` séparées par les tuyaux `%>%`. On répéte autant de fois que nécessaire pour incorporer l’information que l’on souhaite.
+
+**Ressources**
+
+* <a href="https://cran.r-project.org/web/packages/leaflet/leaflet.pdf">La documentation complète R</a>
+* L'[aide mémoire](https://github.com/rstudio/cheatsheets/raw/master/leaflet.pdf)
+
+**Chargement des packages qui nous seront utiles**
+```{r,eval=TRUE,results = "hide",message =FALSE,warning =FALSE}
+library(leaflet)
+library(dplyr) # pour la manipulation des tableaux de données
+library(purrr) # pour faciliter la programmation fonctionnelle (en permettant d’appliquer une même fonction à chaque élément d’un ensemble (les colonnes d’un data frame, ou les éléments d’une list par exemple)
+library(stringr) # pour la manipulation de chaînes de caractères
+library(sf) # pour la manipulation de données géographiques vectorielles
+library(widgetframe) # pour sauver les widgets
+library(htmlwidgets) # pour la lecture des labels comme éléments HTML
+library(readxl) # pour l'importation des fichiers Excel
+```
+
+**Première carte**
+
+Un exemple tout simple :
+
+```{r ,eval=TRUE}
+m <- leaflet() %>%
+addTiles() %>%
+addMarkers(lng = 3.0715128394022075, lat = 50.63099115236466, popup = "Direccte Hauts-de-France")
+
+m
+```
+
+
+**Comment sauvegarder la carte ?**
+
+La carte peut être sauvegardée en HTML grâce à la fonction `saveWidget()` du package `widgetframe`, pour pouvoir être partagée (par mail par exemple) ou ajoutée dans une page Web. L'interactivité vient du "côté client" (via JavaScript dans le navigateur Web). Cela signifie que **les données sont écrites en dur dans le code HTML**.
+
+Si un chemin d'accès complet au fichier n'est pas défini, le résultat sera enregistré dans le répertoire de travail.<br/><br/>
+
+
+```{r,eval=TRUE,results = "hide",message =FALSE}
+saveWidget(m, file="marqueurs.html", selfcontained = TRUE)
+```
+
+
+## Les Widgets de carte
+
+La fonction `leaflet()` renvoie un "Map Widget", qui stocke une liste d'objets pouvant être modifiés ou mis à jour ultérieurement.  
+
+On peut manipuler les attributs du widget de carte en utilisant différentes méthodes. Pour plus de détails, consulter la page d'aide `?SetView`.  
+
+* `setView()` définit le centre de la vue de la carte et le niveau de zoom ;
+* `fitBounds()` ajuste la vue dans le rectangle [lng1, lat1] - [lng2, lat2] ;
+* `clearBounds()` efface la limite, de sorte que la vue sera automatiquement déterminée par la plage de données de latitude / longitude dans les couches de la carte si elles sont fournies.
+
+
+`Leaflet()` et les fonctions de couche de carte ont un paramètre de données facultatif conçu pour recevoir des données spatiales sous l'une des formes suivantes :
+
+* À partir du R "basique": 
+  + matrice lng/lat
+  + data frame avec colonnes lng/lat ;
+* À partir du package [sp](https://cran.rstudio.com/web/packages/sp/index.html): 
+  + `SpatialPoints [DataFrame]`
+  + `line`/`lines`
+  + `SpatialLines [DataFrame]`
+  + `Polygon`/`Polygons`
+  + `SpatialPolygons [DataFrame]`
+* À partir du package [map](https://cran.rstudio.com/web/packages/maps/index.html)
+  + la data frame renvoyée par `map()`
+
+
+
+L'argument `data` est utilisé pour convertir des données spatiales pour les fonctions qui en ont besoin ; par exemple, si `data` est un objet `SpatialPolygonsDataFrame`, alors l'appel de `addPolygons()` saura ajouter les polygones.  
+
+Il est simple d'utiliser des objets `sp` car ils représentent toujours les données spatiales de la même manière. D'un autre côté, pour une matrice ou une simple data frame, toute colonne numérique peut potentiellement contenir des données spatiales. 
+
+* la variable de latitude est devinée en recherchant des colonnes nommées `lat` ou `latitude` (insensible à la casse)
+* la variable de longitude est devinée en recherchant `lng`, `long` ou `longitude`
+
+On peut également spécifier explicitement les colonnes Lat et Long de cette manière:
+
+
+```{r,eval=FALSE}
+leaflet(df) %>% addCircles(lng = ~Long, lat = ~Lat)
+```
+
+
+**Les formules avec `~`**
+
+Les arguments de toutes les fonctions de couches peuvent prendre des objets R classiques, tels qu'un vecteur numérique pour l'argument `lat` ou un vecteur de caractères de couleurs pour l'argument `color`.
+Ils peuvent également prendre une formule, auquel cas la formule sera évaluée en utilisant l'argument `data` comme environnement. Par exemple, `~x` signifie la variable x dans l'objet de données, et on peut écrire des expressions arbitraires sur le côté droit, par exemple, `~ sqrt(x + 1)`.
+
+
+
+## Fonds de carte
+
+Par défaut, le fond de cartes est OpenStreetMap. Toutefois, on peut utiliser d'autres fonds de carte grâce à la fonction `addProviderTiles()`.
+<a href="http://leaflet-extras.github.io/leaflet-providers/preview/index.html">Cliquer ici pour la liste complète</a> 
+
+
+```{r,eval=TRUE}
+m %>% addProviderTiles(providers$Stamen.Toner)
+```
+
+
+## Ajouter des marqueurs
+Les marqueurs permettent d'identifier des points sur la carte. Chaque point doit être défini en coordonnées latitude/longitude.
+Ils peuvent provenir d'un shapefile (importé grâce à `sp`), ou simplement avec une data frame avec latitude et longitude.
+
+Un petit exemple :
+
+```{r,eval=TRUE}
+sitesDireccte <-  read_excel("J:\\g_etstat\\Formations\\R cartographie dynamique\\Données\\sites.xlsx",sheet = "Feuil1")
+
+#Un aperçu de la table
+library(knitr)
+kable(sitesDireccte)
+
+leaflet(data = sitesDireccte)%>%
+addTiles()%>%
+addMarkers() 
+
+
+```
+
+**Rappel**
+`addMarkers()` vérifie automatiquement la table pour des colonnes appelées lng/long/longitude et lat/latitude (insensible à la casse).  
+Si les colonnes des coordonnées ont d'autres noms, il faut les identifier explicitement en utilisant les arguments lng et lat : `addMarkers(lng = ~Longitude, lat = ~Latitude)`.
+
+
+
+## Ajouter des labels et des popups
+Chaque point peut montrer du texte en utilisant soit un label (qui apparait si on passe la souris dessus ou statiquement) ou un popup (qui apparait seulement si on clique). Par exemple, on peut labéliser chaque site Direccte avec son nom.
+
+```{r,eval=TRUE}
+leaflet(data = sitesDireccte) %>%
+addTiles() %>%
+addMarkers(label = ~Site)
+```
+
+Si on veut que l'information apparaisse lorsqu'on clique sur le marqueur, on devrait utiliser à la place `popup = ~Site`.
+
+On peut combiner différentes informations pour créer un message popup personnalisé. <a href="https://websitesetup.org/html5-cheat-sheet/">Cliquer ici pour quelques informations sur l'écriture de documents HTML pour personnaliser les messages popup.</a> <br/>
+<br/>
+
+```{r,eval=TRUE}
+sitesDireccte%>%
+  mutate(popup = str_c(Site,
+                       adresse,
+                       str_c("Téléphone:", `tel`,
+                             sep = " "),
+                       sep = "<br/>")) %>%
+  leaflet() %>%
+  addTiles() %>%
+  addMarkers(popup = ~popup)
+```
+
+
+
+## Ajouter des aires et des cercles
+### Les aires avec `addPolygons()`
+Leaflet permet d'afficher des lignes et des formes depuis R, et de les ajouter sur les fonds de carte.  
+
+On importe notre shapefile en utilisant la fonction `read_sf()` du package sf, et on produit une carte des Hauts-de-France avec chaque zone d'emploi.  
+
+En règle générale, les cartes Web sont générées à l'aide de la projection WGS84 Web Mercator ou WGS84.
+
+`St_tranform()` est utilisé pour effectuer la transformation.
+
+
+```{r,eval=TRUE}
+#Importation de la géographie
+couche_ze_reg <- sf::read_sf('J:\\g_etstat\\Cartographie\\Fonds de cartes\\Usuels\\2020\\R32\\ZE parties régionales.shp') %>%
+sf::st_transform('+proj=longlat +datum=WGS84')
+
+#Création de la carte
+leaflet(data = couche_ze_reg) %>%
+addPolygons(color = "#444444",
+            weight = 1,
+            smoothFactor = 0.5,
+            opacity = 1.0,
+            fillOpacity = 0.5,
+            label = ~lb_clst,
+            highlightOptions = highlightOptions(color = "white",
+                                                  weight = 2,
+                                                  bringToFront = TRUE)) %>% 
+addTiles()
+```
+
+
+Les premiers arguments ajustent l'apparence de chaque polygone (par exemple : couleur, opacité, épaisseur de trait).
+`highlightOptions` met en surbrillance le polygone survolé. 
+
+
+### Les cercles avec `addCircleMakers`
+Pour des cartes avec des symboles proportionnels, on utilisera la fonction `addCircleMakers` qui permet d’ajouter des cercles proportionnels à la variable observée. Ces cercles sont ensuite localisés sur la carte grâce à la longitude et la latitude du centroïd de la zone géographique.
+
+Nous verrons un exemple dans la deuxième application !
+
+## Ajouter de la couleur
+Il existe actuellement trois fonctions de couleur pour gérer les données continues: `colorNumeric`, `colorBin` et `colorQuantile`; et un pour les données catégorielles, `colorFactor`.
+
+L'argument palette spécifie les couleurs pour représenter les données. Cet argument peut prendre plusieurs formes :
+1. Le nom d'une palette prédéfinie du package `RColorBrewer`, par exemple `"RdYlBu"`, `"Accent"` ou `"Greens"`.
+2. Le nom complet d'une palette de `viridis` : `"viridis"`, `"magma"`, `"inferno"` ou `"plasma"`.
+3. Un vecteur de caractères RVB ou des couleurs nommées, par exemple `palette()`, `c("# 000000", "# 0000FF", "#FFFFFF")`, `topo.colors (10)`.
+
+L'argument domain indique à la fonction de couleur la plage des valeurs d'entrée. On peut mettre `NULL` pour créer une fonction de palette qui n’a pas de plage prédéfinie ; la plage sera alors déduite des données chaque fois que la fonction de palette sera invoquée. 
+
+
+
+### Données continues, couleurs continues (`colorNumeric`)
+Nous allons représenter la densité de population à l'aide de la palette `"Reds"` de `ColorBrewer2`. Nous allons utiliser la fonction `colorNumeric()` pour créer une fonction de mappage : la palette `"Reds"` ne contient que neuf couleurs, mais `colorNumeric()` interpole ces couleurs pour obtenir une sortie continue.
+
+```{r,eval=TRUE}
+#Importation de la géographie
+couche_ze <- sf::read_sf('J:\\g_etstat\\Cartographie\\Fonds de cartes\\Usuels\\2020\\R32\\ZE.shp') %>%
+  sf::st_transform('+proj=longlat +datum=WGS84')
+
+#Importation des données
+densite <-  read_excel("J:\\g_etstat\\Formations\\R cartographie dynamique\\Données\\densité_de_population_2017.xlsx")%>% 
+  rename(ze2020=Code)
+
+#Concaténation de la géographie et des données
+densite <- couche_ze %>% merge(densite , by="ze2020", all.x = TRUE)
+
+#Création de la fonction palette (correspondance données continues et palette de couleur interpolée)  
+pal <- colorNumeric(palette = "Reds", 
+                    domain = densite$Densite)
+
+#Création de la carte
+leaflet(data = densite) %>%
+addTiles() %>%
+addPolygons(label = ~Densite, 
+            fillColor = ~pal(Densite),
+			      color = "#444444",
+			      weight = 1, 
+			      smoothFactor = 0.5, 
+			      opacity = 1.0,
+			      fillOpacity = 0.5,
+            highlightOptions = highlightOptions(color = "white", 
+                                                weight = 2, 
+                                                bringToFront = TRUE),
+            labelOptions = labelOptions(style = list("font-weight" = "normal", 
+                                                     padding = "3px 8px"),
+                                        textsize = "15px",
+                                        direction = "auto"))%>%
+addLegend(position="bottomleft", 
+          pal=pal, 
+          values=~Densite, 
+          title="Densité de population 2017, avec colorNumeric")
+```
+
+
+
+### Données continues, couleurs discrètes (`colorBin` ou `colorQuantile`)
+
+`colorBin()` mappe les données d'entrée numériques à un nombre fixe de couleurs de sortie à l'aide du découpage du domaine d'entrée par valeur.
+On peut spécifier les ruptures exactes à utiliser ou le nombre souhaité de cases. A noter que dans ce dernier cas, si `pretty = TRUE` (valeur par défaut), on ne retrouve  pas nécessairement le nombre de cases souhaitées.  
+
+`colorQuantile()` mappe les données d'entrée numériques à un nombre fixe de couleurs de sortie à l'aide de quantiles (découpage du domaine d'entrée en sous-ensembles avec un nombre égal d'observations).
+
+```{r,eval=TRUE}
+qpal <- colorQuantile("Reds", densite$Densite, n = 4)
+```
+
+```{r, echo=FALSE}
+leaflet(data = densite) %>%
+addTiles() %>%
+addPolygons(label = ~Densite, fillColor = ~qpal(Densite),
+			      color = "#444444", weight = 1, smoothFactor = 0.5, opacity = 1.0, fillOpacity = 0.5,
+            highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = TRUE),
+            labelOptions = labelOptions(style = list("font-weight" = "normal", padding = "3px 8px"),textsize = "15px",direction = "auto"))%>%
+addLegend(position="bottomleft", pal=qpal, values=~Densite, title="Quantiles de la densité de population 2017, avec colorQuantile")
+```
+
+### Données catégorielles (`colorFactor`)
+
+Pour les données catégorielles, utilisez la fonction `colorFactor()`. Si la palette contient le même nombre d'éléments que les niveaux de facteur, le mappage sera 1:1; sinon, la palette sera interpolée pour produire le nombre de couleurs souhaité.
+Vous pouvez spécifier le domaine d'entrée soit en passant un facteur ou un vecteur de caractères au domaine, soit en fournissant des niveaux directement à l'aide du paramètre `levels` (auquel cas le domaine sera ignoré).  
+
+```{r, eval=TRUE}
+factpal <- colorFactor(palette = topo.colors(24), densite$class)
+```
+
+```{r, echo=FALSE}
+leaflet(data = densite) %>%
+  addTiles() %>%
+  addPolygons(label = ~lb_clstr ,
+              fillColor = ~factpal(class),
+              color = "#444444",
+              weight = 1,
+              smoothFactor = 0.5,
+              opacity = 1.0,
+              fillOpacity = 0.5,
+              labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")) %>%
+  addLegend(position="bottomleft", pal=factpal, values=densite$class, title="Classification des zones d'emploi, avec colorFactor")
+```
+
+
+## Ajouter une légende et un titre
+La légende est ajoutée à l'aide de la fonction de couche `addLegend()`, et un titre à l'aide de `addControl()`.
+
+Par exemple pour la dernière carte, cela donne :
+```{r, eval=FALSE}
+addLegend(position="bottomleft", 
+          pal=factpal, 
+          values=densite$class, 
+          title="Classification des zones d'emploi, avec colorFactor")%>%
+addControl("Titre", 
+           position = "topright")
+```
+
+Pour `addLegend()`, la principale nécessité est d'indiquer la palette de couleur (`pal`) utilisée.
+
+**Personnalisation de la légende**
+
+On peut appliquer un format à la légende grâce à l'argument `labFormat` :
+
+```{r, eval=FALSE}
+addLegend(
+  ...,
+  labFormat = labelFormat(
+    prefix = "",
+    suffix = "",
+    between = " – ",
+    digits = 3,
+    big.mark = ",",
+    transform = identity)
+)
+```
+Voici les arguments :
+
++ prefix : pour ajouter un préfixe aux labels
++ suffix : pour ajouter un suffix aux labels
++ between : pour choisir un séparateur entre [i] and x[i + 1] (par défaut, c'est un tiret)
++ digits : le nombre de digits pour les valeurs numériques
++ big.mark : pour spécifier le séparateur des milliers
++ transform : fonction qui transforme la valeur des labels
+
+
+
+## Applications
+
+### Application 1 : carte choroplète du taux de chômage par zone d'emploi
+
+Nous allons reproduire pas à pas la carte choroplète de la  [publication trimestrielle sur le taux de chômage](https://hauts-de-france.direccte.gouv.fr/sites/hauts-de-france.direccte.gouv.fr/IMG/pdf/suivi_du_taux_de_chomage_2020_t3.pdf)
+
+Tout d'abord nous allons ajouter le taux de chômage par ZE au shapefile que nous avons précédemment importé.
+
+```{r, eval=TRUE}
+cho <-  read_excel("J:\\g_etstat\\Formations\\R cartographie dynamique\\Données\\Taux de chômage.xlsx")%>%
+rename(ze2020=CodeZE)
+
+carte_cho <-  couche_ze_reg %>% left_join(cho,Taux, by=c("ze2020"="ze2020"))
+```
+
+#### Ajouter de la couleur
+
+Nous allons définir une palette de couleur pour cette carte. Pour générer des palettes de couleur, on peut utiliser les fonctions `RColorBrewer` ou `viridis.`
+On définit d'abord des intervalles, grâce à un vecteur numérique. Ensuite, on appelle `colorBin()` pour générer une palette qui fait correspondre le `RColorBrewer` appelé `"YlOrRd"` à nos intervalles.
+Enfin, on ajoute l'argument `fillcolor` dans la couche `addPolygons()`.
+
+```{r, eval=TRUE}
+bins <- c(7.7, 7.8, 9.9, 10.8, 13.1, 14.1)
+pal <- colorBin("YlOrRd", domain = carte_cho$Taux, bins = bins)
+
+carte_cho %>%
+leaflet() %>%
+addTiles() %>%
+addPolygons(fillColor = ~pal(Taux),
+             color = "#444444",
+              weight = 1,
+              smoothFactor = 0.5,
+              opacity = 1.0,
+              fillOpacity = 0.5,
+              highlightOptions = highlightOptions(color = "white",
+                                                 weight = 2,
+                                               bringToFront = TRUE))
+```
+
+
+
+
+#### Personnalisation des labels
+
+Nous allons maintenant modifier le label pour identifier le taux de chômage des les zones d'emploi. On génére un HTML à la main et on le passe à `map(htmltools::HTML)` pour que leaflet sache qu'il faut traiter chaque label comme un HTML (et non comme un texte simple).
+
+On modifie également l'apparence de chaque label en utilisant l'argument `labelOptions`.
+
+```{r, eval=TRUE}
+carte_cho %>%
+mutate(label = str_c("<strong>", lb_clst,"</strong>","<br/>","Taux de chômage au 3e trimestre 2020 : ", Taux," %") %>%
+map(htmltools::HTML))  %>%
+leaflet() %>%
+addTiles() %>%
+addPolygons(label = ~label,
+            fillColor = ~pal(Taux),
+            color = "#444444",
+            weight = 1,
+            smoothFactor = 0.5,
+            opacity = 1.0,
+            fillOpacity = 0.5,
+            highlightOptions = highlightOptions(color = "white",
+                                                  weight = 2,
+                                                  bringToFront = TRUE),
+            labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto"))
+```
+
+####  Ajouter une légende et un titre
+
+
+
+
+```{r, eval=FALSE}
+addLegend(pal = pal,
+            values = ~Taux,
+            opacity = 0.7,
+            title = "Taux de chômage (en %)",
+            position = "bottomright") %>%
+ addControl("Les taux de chômage au 3e trimestre 2020 dans les Hauts-de-France", position = "topright")
+```	
+
+
+```{r, echo=FALSE}
+#Création des labels personnalisés
+carte_cho<- carte_cho %>%
+mutate(label = str_c("<strong>", lb_clst,"</strong>","<br/>","Taux de chômage au 3e trimestre 2020 : ", Taux," %") %>%
+map(htmltools::HTML))
+
+#Création de la carte finale
+carte_cho %>%
+leaflet() %>%
+addTiles() %>%
+addPolygons(label = ~label,
+            fillColor = ~pal(Taux),
+            color = "#444444",
+            weight = 1,
+            smoothFactor = 0.5,
+            opacity = 1.0,
+            fillOpacity = 0.5,
+            highlightOptions = highlightOptions(color = "white",
+                                                  weight = 2,
+                                                  bringToFront = TRUE),
+            labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")) %>%
+addLegend(pal = pal,
+          values = ~Taux,
+          labFormat = labelFormat(suffix = " %"),
+          opacity = 0.7,
+          title = "Taux de chômage (en %)",
+          position = "bottomright")  %>%
+addControl("Les taux de chômage au 3e trimestre 2020 dans les Hauts-de-France", position = "topright")
+```
+
+
+### Application 2 : Carte des populations légales avec cercles proportionnels
+ 
+Les cercles sont ajoutés à l'aide de la fonction `addCircles()`. Les cercles ont leur rayon spécifié en mètres, par conséquent les cercles sont mis à l'échelle avec la carte lorsque l'utilisateur effectue un zoom avant et arrière.
+Seuls les centres (et les rayons) des cercles sont requis, contrairement aux polygones.
+
+```{r, echo=TRUE}
+#Importation des populations légales 2018
+pop <-  read_excel("J:\\g_etstat\\Formations\\R cartographie dynamique\\Données\\population_légale_2018.xlsx")%>%
+  rename(ze2020=Code)
+
+#Concaténation de la géographie et des données
+pop <- couche_ze %>% 
+  merge(pop , by="ze2020", all.x = TRUE)
+
+#On récupère les centroïdes des zones d'emplois dans un dataframe
+centroid<-pop %>% 
+  st_centroid() %>%
+  st_transform('+proj=longlat +ellps=GRS80 +no_defs') %>%
+  st_coordinates() %>% 
+  as.data.frame()
+
+p <-pop %>% 
+  as.data.frame()
+
+#On ajoute les coordonnées des centroïdes, et on crée les labels personnalisés
+popleg <- bind_cols(p, centroid)  %>%
+  mutate(label = str_c("<strong>", lb_clst, "</strong>","<br/>","Population légale 2018 : ", pop) %>%
+  map(htmltools::HTML))
+
+#Création de la carte
+popleg %>%
+  leaflet() %>%
+  addTiles() %>%
+  addCircles(radius=~pop/100,
+             lng = ~X, 
+             lat = ~Y, 
+             label = ~label,
+             weight = 0.5,
+             opacity = 1,
+             fillOpacity =1,) %>%
+  addControl("Populations légales 2018 par zone d'emploi dans les Hauts-de-France", position = "topright")
+```
+
+
+## Interactivité
+### Montrer/cacher des couches
+ Le package Leaflet comprend des fonctions pour afficher et masquer les couches de carte. Vous pouvez permettre aux utilisateurs de décider quelles couches afficher et masquer grâce à la fonction `addLayersControl`.  
+
+L'unité d'affichage/masquage est le groupe. Vous affectez des couches à des groupes en utilisant le paramètre de groupe lors de l'ajout des couches à la carte.
+ De nombreuses couches peuvent appartenir au même groupe, mais on ne peut pas affecter une couche à deux groupes. 
+ 
+**Différence entre `baseGroups` et `overlayGroups`**
+
++ L'argument  `baseGroups` permet à l'utilisateur de choisir un groupe de couche seulement à la fois.
++ L'argument  `overlayGroups` permet à l'utilisateur d'activer ou désactiver chaque groupe indépendamment.
+ 
+```{r, echo=TRUE}
+#Fonctions palettes de couleur
+palpop <- colorNumeric(palette = "Blues", domain = popleg$pop)
+pal <- colorNumeric(palette = "Reds",domain = densite$Densite)
+pald <- colorBin("YlOrRd", domain = carte_cho$Taux, bins = bins)
+
+
+leaflet() %>%
+addTiles() %>%
+
+#Ajout des cercles et polygones
+  addPolygons(data = densite,
+              label = ~Densite, 
+              fillColor = ~pal(Densite),
+              color = "#444444", 
+              weight = 1, 
+              smoothFactor = 0.5, 
+              opacity = 1.0,
+              fillOpacity = 0.5,
+              highlightOptions = highlightOptions(color = "white",
+                                                  weight = 2,
+                                                  bringToFront = TRUE),
+              group = "Densité de population")%>%
+  
+  addPolygons(data =
+              carte_cho,
+              label = ~label,
+              fillColor = ~pald(Taux),
+              color = "#444444",
+              weight = 1,
+              smoothFactor = 0.5,
+              opacity = 1.0,
+              fillOpacity = 0.5,
+              highlightOptions = highlightOptions(color = "white",
+                                                  weight = 2,
+                                                  bringToFront = TRUE),
+              group = "Taux de chômage")%>%
+  
+  addCircles(data = popleg, 
+             radius=~pop/50,
+             lng = ~X, 
+             lat = ~Y, 
+             label = ~label, 
+             color = "#444444", 
+             weight = 0.5,
+             opacity = 1,
+             fillColor = ~palpop(pop), 
+             fillOpacity =1, 
+             group = "Populations légales")%>%
+  
+#Ajout des légendes
+  addLegend(position="bottomleft", 
+            pal=palpop, 
+            values=popleg$pop, 
+            title="Populations légales 2018", 
+            group="Populations légales")%>%
+  
+  addLegend(position="bottomright",
+            pal=pald, 
+            values=carte_cho$Taux, 
+            title="Taux de chômage au 3e trimestre 2020 (%)",
+            group="Taux de chômage")%>%
+  
+  addLegend(position="bottomleft",
+            pal=pal,
+            values=densite$Densite,
+            title="Densité de population 2017",
+            group="Densité de population")%>%
+
+#Contrôle de couche
+addLayersControl(
+  baseGroups = c("Densité de population", "Taux de chômage"),
+  overlayGroups = "Populations légales",
+  options = layersControlOptions(collapsed = FALSE))%>%
+
+  #Ajout d'un titre
+  addControl("Le taux de chômage 2020T3, la densité de population 2017 et les populations légales 2018", 
+             position = "topright")
+ ```
+ 
+ 
+
+### Tableaux de bord dynamiques avec Rmarkdown et Flexdashboard
+ 
+L’extension `rmarkdown` permet de générer des documents de manière dynamique en mélangeant texte mis en forme et résultats produits par du code R. Les documents générés peuvent être au format HTML, PDF, Word, et bien d’autres. C’est donc un outil très pratique pour l’exportation, la communication et la diffusion de résultats.
+
+Le présent document a lui-même été généré à partir de fichiers R Markdown.
+
+Les avantages de ce système sont nombreux :
+
++ le code et ses résultats ne sont pas séparés des commentaires qui leur sont associés
++ le document final est reproductible
++ le document peut être très facilement régénéré et mis à jour, par exemple si les données source ont été modifiées.
+ 
+
+Flexdashboard permet d'utilisez R Markdown pour publier un groupe de visualisations de données associées sous forme de tableau de bord.
+
++ Prise en charge d'une grande variété de composants, y compris les widgets html; graphiques de base, de treillis et de grille; données tabulaires; jauges et boîtes de valeur; et les annotations de texte.
+
++ Flexible et facile à spécifier des dispositions basées sur des lignes et des colonnes. Les composants sont  redimensionnés pour remplir le navigateur et adaptés pour être affichés sur les appareils mobiles.
+
+
+
+### Shiny
+En ajoutant Shiny à un tableau de bord, on peut laisser les utilisateurs modifier les paramètres sous-jacents et voir les résultats immédiatement, ou laisser les tableaux de bord se mettre à jour au fur et à mesure que leurs données sous-jacentes changent (voir les fonctions `reactiveFileReader()` et `reactivePoll()` dans le package shiny). Cela se fait en ajoutant `runtime: shiny` à un document de tableau de bord standard, puis en ajoutant un ou plusieurs contrôles d'entrée et/ou expressions réactives qui déterminent dynamiquement l'apparence des composants dans le tableau de bord.  
+
+L'utilisation de Shiny avec Flexdashboard transforme un rapport interactif "côté client" en un document interactif "côté serveur". Il est important de noter que les documents interactifs doivent être déployés sur un serveur Shiny pour être largement partagés (alors que les documents statiques R Markdown sont des pages Web autonomes qui peuvent être jointes à des e-mails ou servies à partir de n'importe quel serveur Web standard).
+
+
+
+## A vous de jouer !
+
+Un petit exercice que je vous propose pour mettre en pratique : il s'agit de reproduire la carte [Estimations trimestrielles d'emploi salarié au 3ᵉ trimestre 2020 et évolutions par grand secteur d'activité : comparaisons départementales](https://www.insee.fr/fr/statistiques/2134435) (pour la France métropolitaine uniquement !)
+
+Les données sont téléchargeables sur le site Insee, et la géographie est dans [ce répertoire](J:\g_etstat\Cartographie\Fonds de cartes\Usuels\2019\FM)
+
+N'hésitez pas à m'envoyer vos cartes par mail !
+
+
+## Pour aller plus loin
+
+#### Rmarkdown et Flexdashboard
++ [Un guide Rmarkdown très complet](https://bookdown.org/yihui/rmarkdown/)
++ [La documentation complète Flexdashboard](https://rmarkdown.rstudio.com/flexdashboard/)
+
+#### Shiny
+Voici quelques ressources pour en savoir plus sur Shiny :
+
++ Le [guide de démarrage](https://shiny.rstudio.com/tutorial/)
+
++ Le [site Web officiel de Shiny](http://shiny.rstudio.com) comprend des articles détaillés, des tutoriels et des exemples pour vous aider à en savoir plus sur Shiny.
+
++ L'article [Introduction to interactive documents](https://shiny.rstudio.com/articles/interactive-docs.html) sur le site Web de Shiny est un excellent guide pour démarrer avec Shiny et R Markdown.
+
++ Pour déployer des documents interactifs, vous pouvez envisager Shiny Server ou RStudio Connect: https://www.rstudio.com/products/shiny/shiny-server/.
+
+#### Tableaux et graphes interactifs avec des HTML widgets
+Pour créer des tableaux, graphes, voir [la documentation HTMLwidgets for R](http://www.htmlwidgets.org/showcase_leaflet.html)
+
