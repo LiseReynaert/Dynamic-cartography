@@ -1,0 +1,234 @@
+
+---
+title: "Chiffres clés de l'Aisne au 3e trimestre 2020"
+output: 
+  html_document:
+    toc: true
+    theme: lumen
+    toc_float: true
+---
+
+
+
+## Marché du travail 
+### Demande d’emploi
+
+```{r setup, include=FALSE}
+library(readxl)
+library(dplyr)
+library(scales)
+library(tidyverse)
+library(knitr)
+library(leaflet)
+library("kableExtra")
+library(plotly)
+load("J:\\g_etstat\\Statistiques\\Conjoncture\\Direccte\\Chiffres clés départementalisés\\tableABC.Rdata")
+load("J:\\g_etstat\\Statistiques\\Conjoncture\\Direccte\\Chiffres clés départementalisés\\tableA.Rdata")
+load("J:\\g_etstat\\Statistiques\\Conjoncture\\Direccte\\Chiffres clés départementalisés\\h.Rdata")
+load("J:\\g_etstat\\Statistiques\\Conjoncture\\Direccte\\Chiffres clés départementalisés\\h1.Rdata")
+load("J:\\g_etstat\\Statistiques\\Conjoncture\\Direccte\\Chiffres clés départementalisés\\h2.Rdata")
+load("J:\\g_etstat\\Statistiques\\Conjoncture\\Direccte\\Chiffres clés départementalisés\\age.Rdata")
+load("J:\\g_etstat\\Statistiques\\Conjoncture\\Direccte\\Chiffres clés départementalisés\\ancien.Rdata")
+load("J:\\g_etstat\\Statistiques\\Conjoncture\\Direccte\\Chiffres clés départementalisés\\carte_cho_ze.Rdata")
+load("J:\\g_etstat\\Statistiques\\Conjoncture\\Direccte\\Chiffres clés départementalisés\\carte_cho_dep.Rdata")
+load("J:\\g_etstat\\Statistiques\\Conjoncture\\Direccte\\Chiffres clés départementalisés\\carte_cho_fm.Rdata")
+load("J:\\g_etstat\\Statistiques\\Conjoncture\\Direccte\\Chiffres clés départementalisés\\tablecho.Rdata")
+load("J:\\g_etstat\\Statistiques\\Conjoncture\\Direccte\\Chiffres clés départementalisés\\txcho_graphtrans.Rdata")
+
+```
+
+
+include_graphics("Bureau/logo.jpeg")
+
+#### Demandeurs d’emploi de catégorie ABC au 2020T3
+
+```{r,echo = FALSE, warning=FALSE}
+
+kbl(tableABC,align = "lrrr", format.args =list(big.mark = " ",booktabs = T), 
+    col.names = c(" ","Aisne","Hauts-de-France","France métropolitaine")) %>%
+  kable_styling(htmltable_class = "lightable-hover",html_font = "Arial Narrow") %>%
+  kable_classic() %>%
+  pack_rows("Sexe", 4, 9,label_row_css = "background-color: #5DADE2 ; color: #fff;") %>%
+  pack_rows("Âge", 10, 18,label_row_css = "background-color: #5DADE2 ; color: #fff;")  %>%
+  pack_rows("Ancienneté d'inscription", 19, 27,label_row_css = "background-color: #5DADE2 ; color: #fff;")%>%
+  pack_rows("Niveau de formation", 28, 28,label_row_css = "background-color: #5DADE2 ; color: #fff;")%>%
+  row_spec(1,bold = TRUE)%>%
+  row_spec(c(2, 3, 5,6,8,9,11,12,14,15,17,18,20,21,23,24,26,27,29),italic = TRUE)%>%
+  add_indent(c(2, 3, 5,6,8,9,11,12,14,15,17,18,20,21,23,24,26,27,29))%>%
+  footnote(general=c("Source : Pôle emploi – Dares, STMT, Données cvs-cjo Traitements Dares", 
+                     "Unités : Effectifs arrondis à la dizaine et évolutions en pourcentage"),general_title="")
+```
+
+
+
+#### Évolution trimestrielle de la demande d’emploi de catégorie ABC dans l'Aisne
+
+```{r,echo = FALSE, warning=FALSE}
+
+plot<- ggplot(data = h) + 
+  facet_grid(panel~., scale="free") + 
+  geom_line(data = h1,aes(x = Trim, y = x, group = 1,text = paste0(Trim, " : ", x)), size = 1, color = "#5DADE2") + 
+  geom_col(data = h2 ,aes(x = Trim, y = x,text = paste0(Trim, " : ", x)))+
+  theme_classic()+
+  theme(axis.title.y = element_text(color = "grey"),
+        axis.title.y.right = element_text(color = "blue"),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        strip.background = element_rect(
+        color="white"))+
+  xlab("")+
+  ylab("")
+
+ggplotly(plot,tooltip = "text")
+```
+
+
+
+#### Évolution trimestrielle de la demande d’emploi de catégorie ABC par âge et ancienneté dans l'Aisne
+
+```{r,echo = FALSE}
+plot<- ggplot(data = age) + 
+  geom_col(aes(x = Trim, y = value, fill = Âge),position = "dodge") +
+  theme_classic()  + 
+  scale_fill_manual(name = "Par âge", labels = c("Moins de 25 ans", "25-49 ans", "50 ans ou plus"),values = c("black", "#5DADE2", "grey"))+
+  theme(axis.title.x = element_blank(),axis.text.x = element_text(angle=90))+
+  xlab("")+
+  ylab("")
+ggplotly(plot)
+
+
+    plot<- ggplot(data = ancien) + 
+    geom_col(aes(x = Trim, y = value, fill = variable),position = "dodge") +
+    theme_classic()  + 
+    scale_fill_manual(name = "Par ancienneté", labels = c("Moins d'un an", "Un an ou plus"),values = c( "grey", "#FEA347"))+
+    theme(axis.text.x = element_text(angle=90),text =  element_text(size = 10))+
+    xlab("")+
+    ylab("")
+  
+  ggplotly(plot)
+
+```
+
+
+#### Demandeurs d’emploi de catégorie A au 2020T3
+
+```{r,echo = FALSE}
+kbl(tableA,align = "lrrr", format.args =list(big.mark = " ",booktabs = T), 
+    col.names = c(" ","Aisne","Hauts-de-France","France métropolitaine")) %>%
+  kable_styling(htmltable_class = "lightable-hover",html_font = "Arial Narrow") %>%
+  kable_classic() %>%
+  pack_rows("Sexe", 4, 9,label_row_css = "background-color: #5DADE2 ; color: #fff;") %>%
+  pack_rows("Âge", 10, 18,label_row_css = "background-color: #5DADE2 ; color: #fff;")  %>%
+  row_spec(1,bold = TRUE)%>%
+  row_spec(c(2, 3, 5,6,8,9,11,12,14,15,17,18),italic = TRUE)%>%
+  add_indent(c(2, 3, 5,6,8,9,11,12,14,15,17,18))%>%
+  footnote(general=c("Source : Pôle emploi – Dares, STMT, Données cvs-cjo Traitements Dares", 
+                     "Unités : Effectifs arrondis à la dizaine et évolutions en pourcentage"),general_title="")
+```
+
+
+
+### Taux de chômage
+
+
+
+#### Les taux de chômage au 3e trimestre 2020 dans les Hauts-de-France
+```{r,echo = FALSE}
+bins <- c(7.7, 7.8, 9.9, 10.8, 13.1, 14.1)
+pal <- colorBin("YlOrRd", domain = carte_cho_dep$T3.2020, bins = bins)
+
+
+
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = carte_cho_dep, fillColor = ~pal(T3.2020),
+              label = ~label,
+              color = "#444444",
+              weight = 1,
+              smoothFactor = 0.5,
+              opacity = 1.0,
+              fillOpacity = 0.5,
+              highlightOptions = highlightOptions(color = "white",
+                                                  weight = 2,
+                                                  bringToFront = TRUE),
+              labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto"), group = "Départements") %>%
+    
+    addPolygons(data = carte_cho_ZE, fillColor = ~pal(Taux),label = ~label,
+                color = "#444444",
+                weight = 1,
+                smoothFactor = 0.5,
+                opacity = 1.0,
+                fillOpacity = 0.5,
+                highlightOptions = highlightOptions(color = "white",
+                                                    weight = 2,
+                                                    bringToFront = TRUE),
+                labelOptions = labelOptions(
+                  style = list("font-weight" = "normal", padding = "3px 8px"),
+                  textsize = "15px",
+                  direction = "auto"),group = "Zone d'emplois 2020")  %>%
+    
+  addLegend(data = carte_cho_dep,pal = pal,
+            values = ~T3.2020,
+            opacity = 0.7,
+            title = "Taux de chômage (en %)",
+            position = "bottomright")%>%
+    addControl(str_c("France métropolitaine : ",carte_cho_fm$T3.2020,"%"), position = "topleft")%>%
+  addLayersControl(baseGroups = c("Zone d'emplois 2020", "Départements"),
+    options = layersControlOptions(collapsed = FALSE))
+
+ ```
+
+
+#### Taux de chômage par sexe et âge en moyenne annuelle en 2019 dans l'Aisne
+
+```{r,echo = FALSE}
+kbl(tablecho,align = "lrrr", format.args =list(big.mark = " ",booktabs = T), 
+    col.names = c(" ","Aisne","Hauts-de-France","France métropolitaine")) %>%
+  kable_styling(htmltable_class = "lightable-hover",html_font = "Arial Narrow") %>%
+  kable_classic() %>%
+  pack_rows("Sexe", 3, 6,label_row_css = "background-color: #5DADE2; color: #fff;") %>%
+  pack_rows("Âge", 7, 12,label_row_css = "background-color: #5DADE2; color: #fff;")  %>%
+  row_spec(1,bold = TRUE)%>%
+  row_spec(c(2, 4, 6,8,10,12),italic = TRUE)%>%
+  add_indent(c(2, 4, 6,8,10,12))%>%
+  footnote(general=c("Source : Insee, taux de chômage localisés", 
+                     "Unité : pourcentage"),general_title="")
+
+```
+
+#### Évolution annuelle du taux de chômage par sexe et âge dans l'Aisne 
+
+```{r,echo = FALSE}
+plot<- ggplot(data = txcho_graphtrans) + 
+  geom_line(aes(x = Année, y = `Evolution annuelle`, group = Catégorie ,color = Catégorie), size = 1)+
+  geom_text(data = txcho_graphtrans %>% filter(Année == first(Année)), 
+            aes(label = Catégorie, x = Année+2, y = c(28,12,5,9,16),color = Catégorie),
+            family=c("Helvetica-Narrow"),size = 3) + 
+  scale_color_manual(values=c("#5DADE2", "#FFC300","grey","black","#EC70BB"))+
+  theme_classic() + theme(legend.position='none') +
+  scale_x_continuous(breaks = scales::pretty_breaks(10))+
+  theme(axis.text.x = element_text(angle=90),text =  element_text(size = 11,family = "Helvetica-Narrow"),plot.caption = element_text(hjust = 0))+
+  xlab("")+
+  ylab("") +
+  labs(caption = "Source  Insee taux de chômage localisés")
+ggplotly(plot,tooltip = c("Année","Evolution annuelle"))
+
+```
+
+
+
+## Emploi
+ 
+
+## Créations d’entreprises
+
+
+## Population
+
+## Revenus et pauvreté
+
+
+
+## Définitions
